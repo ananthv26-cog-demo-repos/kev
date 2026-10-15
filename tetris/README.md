@@ -67,4 +67,19 @@ uv run --extra serve python -m tetris.viewer --agent model --run runs/tetris/rl-
 
 ## What happened and why (notes)
 
-(filled in as runs finish)
+**Note 1: the untrained model is a coin flip.** Kev-0.8B zero-shot spreads its probability almost evenly over the 20-34
+placements (entropy 2.9 nats; uniform over 20 is 3.0). It clears 0 lines and dies in ~17 pieces, like the random player.
+Its "will this clear 5 more lines?" answer sits near 0.4 whatever the board. Nothing in its training looked like this.
+
+**Note 2: pure RL from that start reward-hacked within 10 iterations (run v1).** The reward was lines (+1/3/5/8) minus
+0.3 per hole, minus 0.02 per height unit, minus 3 for topping out. A near-random policy never sees a line clear, so the
+only gradient comes from the penalties. The cheapest way to collect fewer penalties is to die sooner: games went from 22
+pieces to 13 while the per-move reward "improved" from -1.04 to -0.69, and the entropy fell as it committed to that. The
+PPO clip fraction sat at 0.4-0.6 (healthy is ~0.1-0.2), a sign the policy was moving much faster than the data supported.
+Stopped at $1. Two fixes are standard and both are in the trainer: shape less (lower hole/height penalties, or an alive
+bonus) and start from a policy that sees the reward at all (`--bc_iters`).
+
+**Note 3: six iterations of imitation make the reward visible (run v2).** Cross-entropy on the heuristic's greedy choice,
+over games the heuristic played at softmax temperature 1, took the model from 0 to 33 lines per 100 pieces after one
+iteration (96 optimizer steps, 2.5 minutes). With `rich` options that is mostly reading: "clears 1" and "2 holes" are in
+the text. The interesting question is what RL does from there.
