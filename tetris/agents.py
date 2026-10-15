@@ -77,6 +77,27 @@ class ModelAgent:
         return _pick(probs, self.sample, self.rng), {"probs": probs, "survive": survive, "state_tokens": state_tokens}
 
 
+class ReplayAgent:
+    """Replays games recorded by tetris.play --out (a GPU run), move for move, with the recorded probabilities: the viewer
+    can show a trained model's games on a machine too slow to run it live. Games are replayed in file order, by seed."""
+    name = "replay"
+
+    def __init__(self, path):
+        import json
+        self.games = [json.loads(l) for l in open(path) if l.strip()]
+        self.games = [g for g in self.games if "moves" in g]
+        self.cursor = {}
+
+    def seeds(self):
+        return [g["seed"] for g in self.games]
+
+    def act(self, game, placements):
+        rec = next(g for g in self.games if g["seed"] == game.seed)
+        move = rec["moves"][game.pieces]
+        i = next(j for j, p in enumerate(placements) if p.key == move["choice"])
+        return i, {"probs": move.get("probs"), "survive": move.get("survive")}
+
+
 def _pick(probs, sample, rng):
     if sample: return rng.choices(range(len(probs)), probs)[0]
     return max(range(len(probs)), key=probs.__getitem__)
@@ -87,4 +108,5 @@ def make_agent(kind, **kw):
     if kind == "heuristic": return HeuristicAgent(temperature=kw.get("temperature", 0.0), seed=kw.get("seed", 0))
     if kind == "remote": return RemoteAgent(url=kw.get("url", "http://127.0.0.1:8009"), encoding=kw.get("encoding", "rich"), sample=kw.get("sample", False), seed=kw.get("seed", 0))
     if kind == "model": return ModelAgent(kw["run"], device=kw.get("device", "cpu"), encoding=kw.get("encoding", "rich"), sample=kw.get("sample", False), seed=kw.get("seed", 0))
+    if kind == "replay": return ReplayAgent(kw["replay"])
     raise ValueError(f"unknown agent {kind!r}")

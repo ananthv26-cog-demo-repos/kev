@@ -31,8 +31,10 @@ class Loop:
 
     def run(self):
         k = 0
+        seeds = self.agent.seeds() if hasattr(self.agent, "seeds") else None
         while True:
-            g = Game(self.W, self.H, seed=self.seed + k, max_pieces=self.max_pieces)
+            seed = seeds[k % len(seeds)] if seeds else self.seed + k
+            g = Game(self.W, self.H, seed=seed, max_pieces=self.max_pieces)
             with self.lock: self.game = g; self.last = {}
             while not g.over:
                 while self.paused: time.sleep(0.1)
@@ -92,7 +94,9 @@ def build(loop: Loop):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--agent", default="heuristic", choices=["random", "heuristic", "remote", "model"])
+    ap.add_argument("--agent", default="heuristic", choices=["random", "heuristic", "remote", "model", "replay"])
+    ap.add_argument("--replay", default="", help="replay: a games.jsonl written by tetris.play --out")
+    ap.add_argument("--name", default="", help="label shown in the page (default: the agent kind)")
     ap.add_argument("--run", default="jaredpalmer/kev-0.8b"); ap.add_argument("--url", default="http://127.0.0.1:8009")
     ap.add_argument("--device", default="cpu"); ap.add_argument("--encoding", default="rich", choices=["rich", "bare"])
     ap.add_argument("--sample", type=int, default=0); ap.add_argument("--temperature", type=float, default=0.0)
@@ -100,7 +104,8 @@ def main():
     ap.add_argument("--max_pieces", type=int, default=500); ap.add_argument("--delay", type=float, default=0.4, help="seconds to show each decision before it is played")
     ap.add_argument("--host", default="0.0.0.0"); ap.add_argument("--port", type=int, default=8010)
     a = ap.parse_args()
-    agent = make_agent(a.agent, run=a.run, url=a.url, device=a.device, encoding=a.encoding, sample=bool(a.sample), temperature=a.temperature, seed=a.seed)
+    agent = make_agent(a.agent, run=a.run, url=a.url, device=a.device, encoding=a.encoding, sample=bool(a.sample), temperature=a.temperature, seed=a.seed, replay=a.replay)
+    if a.name: agent.name = a.name
     import uvicorn
     uvicorn.run(build(Loop(agent, a.width, a.height, a.max_pieces, a.seed, a.delay)), host=a.host, port=a.port, log_level="warning")
 
