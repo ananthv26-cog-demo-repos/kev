@@ -47,6 +47,7 @@ class Loop:
                         "candidates": [{"key": p.key, "cells": [[r, c] for r, c in p.cells], "p": probs[j], "lines": p.lines, "holes": p.holes_made} for j, p in enumerate(ps)]}
                 with self.lock: self.last = last
                 time.sleep(self.delay)
+                while self.paused: time.sleep(0.1)   # a pause pressed during the delay holds the shown decision instead of committing it
                 with self.lock: g.step(ps[i])
             with self.lock: self.history.append({"seed": g.seed, "lines": g.lines, "pieces": g.pieces})
             k += 1
