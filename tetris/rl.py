@@ -62,7 +62,7 @@ def parse_args(argv=None):
     ap.add_argument("--epochs", type=int, default=2, help="PPO passes over each iteration's decisions")
     ap.add_argument("--microbatch", type=int, default=8, help="decisions per forward/backward")
     ap.add_argument("--clip", type=float, default=0.2); ap.add_argument("--entropy", type=float, default=0.01)
-    ap.add_argument("--target_kl", type=float, default=0.02, help="stop an iteration's updates once the mean approx KL(old || new) over a microbatch passes this (0 = never)")
+    ap.add_argument("--target_kl", type=float, default=0.02, help="stop an iteration's updates once the approx KL(old || new), averaged over the microbatches so far, passes this (0 = never)")
     ap.add_argument("--w_survive", type=float, default=0.5, help="weight of the Noul outcome loss")
     ap.add_argument("--checkpointing", type=int, default=0)
     # evaluation / bookkeeping
@@ -173,14 +173,15 @@ def update(a, model, opt, steps, autocast, rng, mode):
     rets = torch.tensor([s.ret for s in steps])
     adv_all = ((rets - rets.mean()) / (rets.std() + 1e-6)).tolist() if len(steps) > 1 else [0.0]
     stats, count, stopped = {"pg": 0.0, "entropy": 0.0, "survive_ce": 0.0, "clipfrac": 0.0, "approx_kl": 0.0, "grad_norm": 0.0}, 0, False
-    order = list(range(len(steps)))
+    order = list(range(len(steps))); kl_sum = 0.0
     for _ in range(a.epochs):
         rng.shuffle(order)
         for k in range(0, len(order), a.microbatch):
             idx = order[k: k + a.microbatch]
             loss, st = policy_loss(a, model, [steps[i] for i in idx], [adv_all[i] for i in idx], autocast, mode)
-            if mode == "rl" and a.target_kl and st["approx_kl"] > a.target_kl:
-                stopped = True; break          # the policy has moved as far as this iteration's data supports (SB3-style early stop)
+            kl_sum += st["approx_kl"]
+            if mode == "rl" and a.target_kl and count >= 8 and kl_sum / (count + 1) > a.target_kl:
+                stopped = True; break          # the policy has moved as far as this iteration's data supports (SB3-style early stop, on the running mean: one microbatch of 8 is too noisy)
             opt.zero_grad(set_to_none=True); loss.backward()
             st["grad_norm"] = float(torch.nn.utils.clip_grad_norm_(model.trainable_parameters(), 1.0))
             opt.step()
