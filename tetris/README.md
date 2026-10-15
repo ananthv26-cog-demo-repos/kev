@@ -1,0 +1,70 @@
+# Kev learns Tetris from outcomes
+
+An experiment on top of Kev: can a Jev-style decision model learn a game with no teacher, only from what happens when it
+plays? Kev's released checkpoints are trained with cross-entropy on labelled answers. Here the placement question is trained
+by policy gradient on the lines it clears, and the "will this game clear 5 more lines?" question is trained on whether it
+did. Same pointer head, same checkpoint format, a different teacher.
+
+## The game as a decision
+
+The board is the state. Every legal drop of the current piece is one option of a `choice` question (up to 34 on a 10x20
+board). A `noul` question asks whether the game will clear at least 5 more lines before it ends.
+
+```text
+state:  board (20 rows of . and #), column heights, holes, current piece, next piece, lines so far
+choice: A: T stem down, cols 3-5, top 4, clears 1, max 5
+        B: T stem down, cols 4-6, top 5, 1 hole, max 6
+        ...
+noul:   Will this game clear at least 5 more lines before it ends?
+```
+
+`rich` options say what the placement does (the simulator supplies those facts, as application code would to Jev); `bare`
+options only say where the piece goes, so the model has to work the consequences out from the board.
+
+## Files
+
+| file | what |
+|---|---|
+| `tetris/env.py` | placement-level Tetris: 7-bag pieces, straight drops, line clears, hole and height accounting, the classic linear heuristic |
+| `tetris/encode.py` | the position as a System One request |
+| `tetris/agents.py` | random, heuristic, a Kev checkpoint in-process, any System One endpoint over HTTP |
+| `tetris/play.py` | play N games, paired seeds across agents, JSONL logs |
+| `tetris/viewer.py` | browser view: board, candidate placements shaded by probability, lines-per-game history |
+| `tetris/rl.py` | the trainer: PPO-clipped policy gradient on the placement question, outcome cross-entropy on the noul question |
+| `tetris/modal_app.py` | train / play / pull on Modal GPUs, with a budget check |
+| `tests/test_tetris.py` | environment, encoding and trainer plumbing, no weights |
+
+## Commands
+
+```bash
+uv run python -m pytest tests/test_tetris.py -q
+uv run python -m tetris.play --agent heuristic --games 20
+uv run --extra serve python -m tetris.viewer --agent heuristic --port 8010          # open http://localhost:8010
+uv run modal run tetris/modal_app.py::smoke                                          # one tiny iteration on an H100 (~2 min)
+uv run modal run --detach tetris/modal_app.py::train --name rl-0.8b-v1 --args "--iters 60 --games 16 --max_pieces 150"
+uv run modal run tetris/modal_app.py::pull --name rl-0.8b-v1                         # -> runs/tetris/rl-0.8b-v1
+uv run --extra serve python -m tetris.viewer --agent model --run runs/tetris/rl-0.8b-v1/checkpoint
+```
+
+## How the trainer works
+
+1. **Rollout.** 16 games run in lockstep. At each piece the model's placement probabilities are sampled (not argmaxed), so
+   it tries things. Each decision records its log-probability and a reward: `LINE_SCORES[lines]` (1/3/5/8) minus 0.3 per
+   hole made, minus 0.02 per unit the max height rises, minus 3 for topping out.
+2. **Returns.** Rewards are summed backwards with discount 0.97, then standardised across the batch. A decision's advantage
+   is how much better its return was than the batch average.
+3. **Update.** Two passes over the decisions in microbatches of 8: PPO-clipped policy gradient (`clip=0.2`) on the
+   placement question, an entropy bonus (0.01) so it keeps exploring, and cross-entropy on the noul question against the
+   actual outcome (weight 0.5). LoRA (rank 16) and the pointer head train; the base stays frozen. The update runs the
+   network in eval mode, so there is no dropout and PPO's ratio starts at exactly 1.
+4. **Evaluate.** 8 greedy games on fixed seeds after every iteration, plus the Brier score of the noul forecasts.
+
+`--bc_iters N` is the fallback: N iterations of imitation (cross-entropy on the heuristic's greedy choice) before RL.
+
+## Results
+
+(filled in as runs finish)
+
+## What happened and why (notes)
+
+(filled in as runs finish)
