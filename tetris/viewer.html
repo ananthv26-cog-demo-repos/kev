@@ -1,0 +1,53 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Kev plays Tetris</title>
+<style>
+ body{font-family:ui-sans-serif,system-ui,sans-serif;background:#0b0b0d;color:#e8e8ea;margin:0;display:flex;gap:28px;padding:24px}
+ canvas{background:#141418;border:1px solid #2a2a30;border-radius:6px}
+ h1{font-size:18px;margin:0 0 10px;font-weight:600} h2{font-size:13px;margin:16px 0 6px;color:#9a9aa3;text-transform:uppercase;letter-spacing:.06em}
+ .stat{font-size:28px;font-weight:600} .sub{color:#9a9aa3;font-size:12px}
+ table{border-collapse:collapse;font-size:12px;width:100%} td{padding:2px 6px;border-bottom:1px solid #1e1e24;white-space:nowrap}
+ td.bar{width:160px} .b{height:8px;background:#5b8def;border-radius:2px} tr.pick td{color:#ffd166}
+ button{background:#1e1e24;color:#e8e8ea;border:1px solid #33333a;border-radius:4px;padding:4px 10px;cursor:pointer;margin-right:6px}
+ #hist{height:90px;width:360px}
+</style></head><body>
+<div>
+ <h1>Kev plays Tetris <span class="sub" id="agent"></span></h1>
+ <canvas id="board" width="300" height="600"></canvas>
+ <div style="margin-top:10px"><button onclick="fetch('/api/pause',{method:'POST'})">pause / resume</button>
+ <button onclick="fetch('/api/delay/0',{method:'POST'})">fast</button><button onclick="fetch('/api/delay/400',{method:'POST'})">normal</button><button onclick="fetch('/api/delay/1500',{method:'POST'})">slow</button></div>
+</div>
+<div style="width:380px">
+ <div style="display:flex;gap:28px"><div><div class="stat" id="lines">0</div><div class="sub">lines this game</div></div>
+ <div><div class="stat" id="pieces">0</div><div class="sub">pieces</div></div>
+ <div><div class="stat" id="mean">–</div><div class="sub">mean lines / game (<span id="games">0</span> games)</div></div></div>
+ <h2>Next piece</h2><canvas id="next" width="120" height="60"></canvas>
+ <h2>This decision</h2>
+ <div class="sub" id="meta"></div>
+ <div style="max-height:300px;overflow:auto;margin-top:6px"><table id="cands"></table></div>
+ <h2>Lines per game</h2><canvas id="hist"></canvas>
+</div>
+<script>
+const SHAPES={I:[[0,0],[0,1],[0,2],[0,3]],O:[[0,0],[0,1],[1,0],[1,1]],T:[[0,0],[0,1],[0,2],[1,1]],S:[[0,1],[0,2],[1,0],[1,1]],Z:[[0,0],[0,1],[1,1],[1,2]],J:[[0,0],[1,0],[1,1],[1,2]],L:[[0,2],[1,0],[1,1],[1,2]]};
+const cv=document.getElementById('board'),cx=cv.getContext('2d');
+function draw(s){
+ const g=s.game; if(!g) return; const H=g.board.length,W=g.board[0].length,cs=Math.min(cv.width/W,cv.height/H);
+ cx.clearRect(0,0,cv.width,cv.height);
+ for(let r=0;r<H;r++)for(let c=0;c<W;c++){cx.fillStyle=g.board[r][c]?'#6c7a92':'#1a1a20';cx.fillRect(c*cs+1,r*cs+1,cs-2,cs-2);}
+ const L=s.last; if(L&&L.candidates){
+  const pick=L.candidates.find(k=>k.key===L.pick); const top=[...L.candidates].sort((a,b)=>b.p-a.p).slice(0,5);
+  for(const k of top){ if(k===pick) continue; cx.fillStyle=`rgba(91,141,239,${0.15+0.6*k.p})`; for(const [r,c] of k.cells) if(r>=0) cx.fillRect(c*cs+1,r*cs+1,cs-2,cs-2);}
+  if(pick){cx.fillStyle='#ffd166'; for(const [r,c] of pick.cells) if(r>=0) cx.fillRect(c*cs+1,r*cs+1,cs-2,cs-2);}
+ }
+ document.getElementById('lines').textContent=g.lines; document.getElementById('pieces').textContent=g.pieces;
+ document.getElementById('mean').textContent=s.mean_lines==null?'–':s.mean_lines; document.getElementById('games').textContent=s.games;
+ document.getElementById('agent').textContent='· agent: '+s.agent+(s.paused?' · paused':'');
+ const n=document.getElementById('next').getContext('2d'); n.clearRect(0,0,120,60); n.fillStyle='#6c7a92'; for(const [r,c] of SHAPES[g.next]) n.fillRect(10+c*24,8+r*24,22,22);
+ if(L&&L.candidates){
+  document.getElementById('meta').textContent=`${L.candidates.length} legal placements · thought ${L.think_ms} ms`+(L.survive!=null?` · P(≥5 more lines) = ${(L.survive*100).toFixed(0)}%`:'')+(L.state_tokens?` · ${L.state_tokens} tokens`:'');
+  const rows=[...L.candidates].sort((a,b)=>b.p-a.p).slice(0,12).map(k=>`<tr class="${k.key===L.pick?'pick':''}"><td>${k.key}</td><td>${k.lines?k.lines+' line'+(k.lines>1?'s':''):''}${k.holes?' '+k.holes+' hole'+(k.holes>1?'s':''):''}</td><td class="bar"><div class="b" style="width:${Math.max(1,k.p*160)}px"></div></td><td>${(k.p*100).toFixed(1)}%</td></tr>`).join('');
+  document.getElementById('cands').innerHTML=rows;
+ }
+ const h=document.getElementById('hist'),hx=h.getContext('2d'); hx.clearRect(0,0,h.width,h.height); const hist=s.history; if(hist.length){const m=Math.max(1,...hist.map(x=>x.lines)),bw=Math.max(2,Math.floor(h.width/Math.max(hist.length,1))-2); hist.forEach((x,i)=>{hx.fillStyle='#5b8def';const bh=Math.max(1,x.lines/m*(h.height-4));hx.fillRect(i*(bw+2),h.height-bh,bw,bh);});}
+}
+async function tick(){try{const r=await fetch('/api/state');draw(await r.json());}catch(e){} setTimeout(tick,250);} tick();
+</script></body></html>
