@@ -44,7 +44,8 @@ function draw(s){
  const n=document.getElementById('next').getContext('2d'); n.clearRect(0,0,120,60); n.fillStyle='#6c7a92'; for(const [r,c] of SHAPES[g.next]) n.fillRect(10+c*24,8+r*24,22,22);
  if(L&&L.candidates){
   document.getElementById('meta').textContent=`${L.candidates.length} legal placements · thought ${L.think_ms} ms`+(L.survive!=null?` · P(≥5 more lines) = ${(L.survive*100).toFixed(0)}%`:'')+(L.state_tokens?` · ${L.state_tokens} tokens`:'');
-  const rows=[...L.candidates].sort((a,b)=>b.p-a.p).slice(0,12).map(k=>`<tr class="${k.key===L.pick?'pick':''}"><td>${k.key}</td><td>${k.lines?k.lines+' line'+(k.lines>1?'s':''):''}${k.holes?' '+k.holes+' hole'+(k.holes>1?'s':''):''}</td><td class="bar"><div class="b" style="width:${Math.max(1,k.p*160)}px"></div></td><td>${(k.p*100).toFixed(1)}%</td></tr>`).join('');
+  const sorted=[...L.candidates].sort((a,b)=>b.p-a.p); let shown=sorted.slice(0,12); const pk=sorted.find(k=>k.key===L.pick); if(pk&&!shown.includes(pk)) shown.push(pk);
+  const rows=shown.map(k=>`<tr class="${k.key===L.pick?'pick':''}"><td>${k.key}</td><td>${k.lines?k.lines+' line'+(k.lines>1?'s':''):''}${k.holes?' '+k.holes+' hole'+(k.holes>1?'s':''):''}</td><td class="bar"><div class="b" style="width:${Math.max(1,k.p*160)}px"></div></td><td>${(k.p*100).toFixed(1)}%</td></tr>`).join('');
   document.getElementById('cands').innerHTML=rows;
  }
  const h=document.getElementById('hist'),hx=h.getContext('2d'); hx.clearRect(0,0,h.width,h.height); const hist=s.history; if(hist.length){const m=Math.max(1,...hist.map(x=>x.lines)),bw=Math.max(2,Math.floor(h.width/Math.max(hist.length,1))-2); hist.forEach((x,i)=>{hx.fillStyle='#5b8def';const bh=Math.max(1,x.lines/m*(h.height-4));hx.fillRect(i*(bw+2),h.height-bh,bw,bh);});}
