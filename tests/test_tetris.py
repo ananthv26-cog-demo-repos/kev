@@ -95,7 +95,7 @@ class _StubModel(torch.nn.Module):
         super().__init__()
         self.emb = torch.nn.Embedding(2048, 8); self.w = torch.nn.Linear(8, 1)
 
-    def encode(self, tok, rec):
+    def encode(self, tok, rec, **kw):
         return {"opts": [[hash(o) % 2048 for o in q["options"]] for q in rec["questions"]]}
 
     def forward_batch(self, encs):
