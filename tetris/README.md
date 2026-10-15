@@ -73,7 +73,7 @@ Metrics per iteration are in `runs/tetris/<run>/metrics.jsonl`; the curves are `
 | random | | | 0 (dies at ~22 pieces) | | | |
 | Kev-0.8B untrained | | rich | 0 (dies at ~17 pieces) | | | |
 | v1 | RL from the untrained model, 10 iterations | rich | 0 (dies at 13 pieces) | | | $1.0 |
-| v3 | 6 iterations of imitation (BC) | rich | 36.1 | 71.9 | 190 (mean 156; 2 of 8 games topped out) | $1.1 |
+| v3 | 6 iterations of imitation (BC) | rich | 36.1 | 71.9 | 190 (mean 156; 3 of 8 games topped out) | $1.1 |
 | v2 | 6 BC then RL at lr 2e-5, 2 epochs | rich | 35.8 after BC, 24.4 three RL iterations later | | | $1.6 |
 | v4b | RL from v3 at lr 5e-6, clip 0.1, KL stop 0.02 | rich | | 73.4 → 75.9 after 2 iterations (running) | | ~$1/iteration... |
 | v5 + v5b | 24 iterations of imitation | bare | 26.5 | | | $2.0 |
