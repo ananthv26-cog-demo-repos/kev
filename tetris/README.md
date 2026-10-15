@@ -63,7 +63,23 @@ uv run --extra serve python -m tetris.viewer --agent model --run runs/tetris/rl-
 
 ## Results
 
-(filled in as runs finish)
+All runs: Kev-0.8B (`jaredpalmer/kev-0.8b`), one H100 each, 16 games per iteration. "Lines" are the greedy policy's mean
+over 8 fixed seeds (10000-10007) at the piece cap named; the heuristic and random player are scored on the same seeds.
+Metrics per iteration are in `runs/tetris/<run>/metrics.jsonl`; the curves are `docs/tetris-curves-100.png` and
+`docs/tetris-curves-200.png`.
+
+| run | recipe | encoding | lines @100 pieces | lines @200 | lines @500 (median) | cost |
+|---|---|---|---|---|---|---|
+| random | | | 0 (dies at ~22 pieces) | | | |
+| Kev-0.8B untrained | | rich | 0 (dies at ~17 pieces) | | | |
+| v1 | RL from the untrained model, 10 iterations | rich | 0 (dies at 13 pieces) | | | $1.0 |
+| v3 | 6 iterations of imitation (BC) | rich | 36.1 | 71.9 | 190 (mean 156; 2 of 8 games topped out) | $1.1 |
+| v2 | 6 BC then RL at lr 2e-5, 2 epochs | rich | 35.8 after BC, 24.4 three RL iterations later | | | $1.6 |
+| v4b | RL from v3 at lr 5e-6, clip 0.1, KL stop 0.02 | rich | | 73.4 → 75.9 after 2 iterations (running) | | ~$1/iteration... |
+| v5 + v5b | 24 iterations of imitation | bare | 26.5 | | | $2.0 |
+| heuristic | | | 36.3 | 73–80 | 195 | |
+
+A 10-wide board clears at most 0.4 lines per piece, so 40 @100, 80 @200 and 200 @500 are the ceilings.
 
 ## What happened and why (notes)
 
@@ -83,3 +99,17 @@ bonus) and start from a policy that sees the reward at all (`--bc_iters`).
 over games the heuristic played at softmax temperature 1, took the model from 0 to 33 lines per 100 pieces after one
 iteration (96 optimizer steps, 2.5 minutes). With `rich` options that is mostly reading: "clears 1" and "2 holes" are in
 the text. The interesting question is what RL does from there.
+
+**Note 4: RL on top of imitation needs a short leash (runs v2 and v4b).** At lr 2e-5 with two passes over each
+iteration's ~1,600 decisions (v2), the greedy policy lost a third of its lines in three iterations while the clip
+fraction sat at 0.3-0.5 and the entropy rose: the updates moved the policy further than the advantages justified. With
+lr 5e-6, clip 0.1, one pass, and an early stop once the running approximate KL between the old and new policy passes
+0.02 (v4b), the same start improved from 71.9 to 75.9 lines per 200 pieces in two iterations, against a ceiling of 80,
+and the noul question's Brier score fell from 0.17 to 0.02 because it now sees many games that do and do not clear 5
+more lines. The rules of thumb (clip fraction near 0.1-0.2, a KL target) exist because this failure is common.
+
+**Note 5: without the hints, imitation is 10x slower (runs v5, v5b).** With `bare` options ("T stem down, cols 3-5"),
+the model has to read the 20-row board to know what a placement does. The same 6 BC iterations that reached 36 lines
+with `rich` options reached 3.4; after 24 iterations it was at 26.5 lines per 100 pieces and still climbing. The
+pointer head can learn the geometry, but the text facts in `rich` were doing most of the work early on, which is
+exactly how Jev-style systems are meant to be used: the application computes what it can and asks the model to decide.
