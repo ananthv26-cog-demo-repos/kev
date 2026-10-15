@@ -25,8 +25,8 @@ PIECES = {
 # how each rotation reads to a person (and to the model), in PIECES order
 ROTATION_NAMES = {"I": ["flat", "upright"], "O": ["square"], "T": ["stem down", "stem right", "stem up", "stem left"],
                   "S": ["flat", "upright"], "Z": ["flat", "upright"],
-                  "J": ["hook up-left", "hook down-right", "hook down-right flat", "hook down-left"],
-                  "L": ["hook up-right", "hook down-right", "hook down-left flat", "hook up-left"]}
+                  "J": ["hook up-left", "foot left", "hook down-right", "hook up-right"],
+                  "L": ["hook up-right", "foot right", "hook down-left", "hook up-left"]}
 LINE_SCORES = {0: 0, 1: 1, 2: 3, 3: 5, 4: 8}   # classic-ish: multi-line clears are worth more than their lines
 
 

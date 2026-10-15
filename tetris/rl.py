@@ -32,7 +32,7 @@ from kev.model import DecisionModel, load_tokenizer
 from kev.train import finish_checkpoint
 
 from .agents import HeuristicAgent
-from .encode import SURVIVE_LINES, request_of
+from .encode import MAX_BRANCH_TOKENS, SURVIVE_LINES, request_of
 from .env import LINE_SCORES, Game, heuristic_score
 
 GPU_HOURLY = {"H100": 3.95, "H200": 4.54, "B200": 6.25, "T4": 0.59, "L4": 0.80, "A10G": 1.10}
@@ -90,7 +90,7 @@ def encode_games(model, tok, games, encoding):
         ps = g.placements()
         req, _ = request_of(g, ps, encoding)
         rec, _ = to_record(SystemOneRequest.model_validate(req))
-        recs.append(rec); encs.append(model.encode(tok, rec)); plist.append(ps)
+        recs.append(rec); encs.append(model.encode(tok, rec, max_branch=MAX_BRANCH_TOKENS)); plist.append(ps)
     return recs, encs, plist
 
 

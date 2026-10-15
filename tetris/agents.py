@@ -7,7 +7,7 @@ import math
 import random
 
 from .env import heuristic_score
-from .encode import request_of
+from .encode import MAX_BRANCH_TOKENS, request_of
 
 
 class RandomAgent:
@@ -68,7 +68,7 @@ class ModelAgent:
     def probs_of(self, game, placements):
         req, keys = request_of(game, placements, self.encoding)
         rec, _ = self.to_record(self.SystemOneRequest.model_validate(req))
-        enc = self.model.encode(self.tok, rec)
+        enc = self.model.encode(self.tok, rec, max_branch=MAX_BRANCH_TOKENS)
         ps = self.model.probs(enc)
         return [float(x) for x in ps[0]], float(ps[1][1]) if len(ps) > 1 else None, enc["state_tokens"]
 

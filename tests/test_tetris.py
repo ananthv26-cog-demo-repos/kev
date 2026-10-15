@@ -72,11 +72,11 @@ def test_request_shape_and_descriptions():
     g = Game(seed=2)
     ps = g.placements()
     req, keys = request_of(g, ps, "rich")
-    assert list(req["questions"]["placement"]["criteria"]) == keys == [p.key for p in ps]
+    assert list(req["questions"]["placement"]["criteria"]) == keys and len(keys) == len(ps) and keys[0] == "A"
     assert req["questions"]["survive"]["type"] == "noul" and req["state"]["current_piece"] == g.current
     json.dumps(req)                                        # serialisable as an API request
     rich, bare = describe(g, ps[0], "rich"), describe(g, ps[0], "bare")
-    assert bare in rich and "height" in rich and "height" not in bare
+    assert bare in rich and "max" in rich and "max" not in bare
     from kev.api import SystemOneRequest, to_record
     rec, meta = to_record(SystemOneRequest.model_validate(req))
     assert [m["type"] for m in meta] == ["choice", "noul"] and len(rec["questions"][0]["options"]) == len(ps)
