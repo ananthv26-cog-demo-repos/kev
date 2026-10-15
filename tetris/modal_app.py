@@ -23,6 +23,7 @@ APP = "kev-tetris"
 GPU = os.environ.get("KEV_GPU", "H100")
 HF_MOUNT, RUNS_MOUNT = "/hf", "/runs"
 HOURLY = {"H100": 3.95, "H200": 4.54, "B200": 6.25, "T4": 0.59, "L4": 0.80, "A10G": 1.10}
+CONTAINER_HOURLY = 4 * 0.04730 + 64 * 0.008   # the trainer's 4 cores and 64 GiB memory limit, billed alongside the GPU (kev.budget rates)
 CAUSAL_CONV1D = "https://github.com/Dao-AILab/causal-conv1d/releases/download/v1.7.0/causal_conv1d-1.7.0%2Bcu12torch2.8cxx11abiTRUE-cp313-cp313-linux_x86_64.whl"
 
 app = modal.App(APP)
@@ -76,7 +77,7 @@ def smoke(gpu: str = "H100"):
 
 @app.local_entrypoint()
 def train(name: str, args: str = "", gpu: str = GPU, budget: float = 25.0, timeout_hours: float = 4.0):
-    worst = HOURLY.get(gpu, 5.0) * timeout_hours
+    worst = (HOURLY.get(gpu, 5.0) + CONTAINER_HOURLY) * timeout_hours
     if worst > budget:
         raise SystemExit(f"{gpu} for {timeout_hours} h could cost ${worst:.0f} > budget ${budget:.0f}; lower --timeout-hours or raise --budget")
     print(f"{name}: {gpu}, at most {timeout_hours} h (~${worst:.0f})", flush=True)

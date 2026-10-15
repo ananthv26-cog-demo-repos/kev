@@ -86,14 +86,17 @@ class ReplayAgent:
         import json
         self.games = [json.loads(l) for l in open(path) if l.strip()]
         self.games = [g for g in self.games if "moves" in g]
-        self.cursor = {}
+        self.by_seed = {}
+        for g in self.games: self.by_seed.setdefault(g["seed"], []).append(g)
+        self.cursor = {}   # seed -> index of the recording being replayed (a seed may appear more than once)
 
     def seeds(self):
         return [g["seed"] for g in self.games]
 
     def act(self, game, placements):
-        rec = next(g for g in self.games if g["seed"] == game.seed)
-        move = rec["moves"][game.pieces]
+        recs = self.by_seed[game.seed]
+        if game.pieces == 0: self.cursor[game.seed] = (self.cursor.get(game.seed, -1) + 1) % len(recs)   # a new game: the next recording of this seed
+        move = recs[self.cursor.get(game.seed, 0)]["moves"][game.pieces]
         i = next(j for j, p in enumerate(placements) if p.key == move["choice"])
         return i, {"probs": move.get("probs"), "survive": move.get("survive")}
 

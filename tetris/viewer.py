@@ -103,7 +103,8 @@ def main():
     ap.add_argument("--sample", type=int, default=0); ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--seed", type=int, default=0); ap.add_argument("--width", type=int, default=10); ap.add_argument("--height", type=int, default=20)
     ap.add_argument("--max_pieces", type=int, default=500); ap.add_argument("--delay", type=float, default=0.4, help="seconds to show each decision before it is played")
-    ap.add_argument("--host", default="0.0.0.0"); ap.add_argument("--port", type=int, default=8010)
+    ap.add_argument("--host", default="127.0.0.1", help="the pause/speed endpoints are unauthenticated; bind a public address only on a network you trust")
+    ap.add_argument("--port", type=int, default=8010)
     a = ap.parse_args()
     agent = make_agent(a.agent, run=a.run, url=a.url, device=a.device, encoding=a.encoding, sample=bool(a.sample), temperature=a.temperature, seed=a.seed, replay=a.replay)
     if a.name: agent.name = a.name

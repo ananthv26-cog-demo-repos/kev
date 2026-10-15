@@ -251,7 +251,7 @@ def main(argv=None):
                              {"params": list(model.head.parameters()), "lr": a.head_lr or a.lr}], weight_decay=0.0)
     (out / "training_config.json").write_text(json.dumps({"args": vars(a), "init_source": init}, indent=1))
     eval_seeds = [10_000 + i for i in range(a.eval_games)]
-    log = open(out / "metrics.jsonl", "a"); t_start = time.time()
+    log = open(out / "metrics.jsonl", "w"); t_start = time.time()   # one run, one log: a reused --out starts over
     total = a.bc_iters + a.iters
     for it in range(1, total + 1):
         mode = "bc" if it <= a.bc_iters else "rl"
