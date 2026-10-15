@@ -75,7 +75,7 @@ Metrics per iteration are in `runs/tetris/<run>/metrics.jsonl`; the curves are `
 | v1 | RL from the untrained model, 10 iterations | rich | 0 (dies at 13 pieces) | | | $1.0 |
 | v3 | 6 iterations of imitation (BC) | rich | 36.1 | 71.9 | 190 (mean 156; 3 of 8 games topped out) | $1.1 |
 | v2 | 6 BC then RL at lr 2e-5, 2 epochs | rich | 35.8 after BC, 24.4 three RL iterations later | | | $1.6 |
-| v4b | RL from v3 at lr 5e-6, clip 0.1, KL stop 0.02 | rich | | 73.4 → 75.9 after 2 iterations (running) | | ~$1/iteration... |
+| v4b | RL from v3 at lr 5e-6, clip 0.1, KL stop 0.02 (checkpoint after 5 iterations) | rich | | 72–76 (noisy; v3 start 71.9) | 191.5 (mean 175; 2 of 8 topped out, vs 3 of 8 for v3) | $2.5 |
 | v5 + v5b | 24 iterations of imitation | bare | 26.5 | | | $2.0 |
 | heuristic | | | 36.3 | 73–80 | 195 | |
 
@@ -106,7 +106,10 @@ fraction sat at 0.3-0.5 and the entropy rose: the updates moved the policy furth
 lr 5e-6, clip 0.1, one pass, and an early stop once the running approximate KL between the old and new policy passes
 0.02 (v4b), the same start improved from 71.9 to 75.9 lines per 200 pieces in two iterations, against a ceiling of 80,
 and the noul question's Brier score fell from 0.17 to 0.02 because it now sees many games that do and do not clear 5
-more lines. The rules of thumb (clip fraction near 0.1-0.2, a KL target) exist because this failure is common.
+more lines. The rules of thumb (clip fraction near 0.1-0.2, a KL target) exist because this failure is common. Over five
+iterations the 200-piece eval wandered between 72 and 76 (8 games is a noisy read), but on 500-piece games the
+iteration-5 checkpoint survived 6 of 8 where v3 survived 5, and its mean rose from 156 to 175 lines: what RL bought here
+is fewer top-outs late in long games, which imitation on 100-piece games never saw.
 
 **Note 5: without the hints, imitation is 10x slower (runs v5, v5b).** With `bare` options ("T stem down, cols 3-5"),
 the model has to read the 20-row board to know what a placement does. The same 6 BC iterations that reached 36 lines
